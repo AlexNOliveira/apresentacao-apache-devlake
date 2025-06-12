@@ -1,0 +1,61 @@
+name: Simular Métricas DORA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  simular-dora:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Git e criar novo branch com arquivo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="feature/simulacao-dora-$(date +%s)"
+          git checkout -b $BRANCH
+          echo "print('simulando DORA')" > dora_$(date +%s).py
+          git add .
+          git commit -m "feat: simulação para métricas DORA"
+          git push origin $BRANCH
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Criar Pull Request
+        id: criar_pr
+        run: |
+          PR_URL=$(gh pr create --base main --head ${{ env.BRANCH }} --title "Simulação DORA" --body "Este PR simula uma mudança para métricas DORA.")
+          echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Esperar 10 segundos (simula tempo de revisão)
+        run: sleep 10
+
+      - name: Fazer Merge do PR
+        run: |
+          gh pr merge ${{ env.PR_URL }} --merge --admin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Criar Issue com label bug
+        run: |
+          gh issue create --title "Bug após simulação DORA" --body "Simulação de bug para métricas DORA." --label "bug"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Esperar 20 segundos (simula tempo de recuperação)
+        run: sleep 20
+
+      - name: Fechar Issue
+        run: |
+          ISSUE_NUMBER=$(gh issue list --label "bug" --state open --limit 1 | awk '{print $1}')
+          gh issue close "$ISSUE_NUMBER" --comment "Bug resolvido na simulação."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
