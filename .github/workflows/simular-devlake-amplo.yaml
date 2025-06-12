@@ -1,0 +1,131 @@
+name: Simular Dados Amplos DevLake
+
+on:
+  workflow_dispatch:
+    inputs:
+      quantidade:
+        description: "Quantas simulações deseja executar?"
+        required: true
+        default: "5"
+
+jobs:
+  simular-avancado:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Simular múltiplas execuções avançadas
+        run: |
+          AUTHORS=("Alice Dev" "Bob Ops" "Carol QA" "Dan UX")
+          LABELS=("enhancement" "refactor" "hotfix" "docs")
+
+          for i in $(seq 1 ${{ github.event.inputs.quantidade }}); do
+            echo "🔁 Simulação $i"
+
+            # Autor simulado
+            AUTHOR=${AUTHORS[$((RANDOM % ${#AUTHORS[@]}))]}
+            AUTHOR_EMAIL=$(echo "$AUTHOR" | tr '[:upper:]' '[:lower:]' | tr ' ' '.')@example.com
+
+            git config user.name "$AUTHOR"
+            git config user.email "$AUTHOR_EMAIL"
+
+            BRANCH="feature/amplo-dora-${i}-$(date +%s)"
+            git checkout -b "$BRANCH"
+
+            FILE="src/simulacao_${i}.py"
+            mkdir -p src
+            echo "# Arquivo gerado por $AUTHOR" > "$FILE"
+            echo "print('Simulação DORA Avançada $i - $(date)')" >> "$FILE"
+
+            # Simula múltiplos commits por PR
+            git add "$FILE"
+            git commit -m "feat: início da simulação $i"
+
+            echo "# Segunda alteração" >> "$FILE"
+            git add "$FILE"
+            git commit -m "chore: ajuste menor na simulação $i"
+
+            echo "# Terceira modificação" >> "$FILE"
+            git add "$FILE"
+            git commit -m "refactor: mudança de estrutura na simulação $i"
+
+            git push origin "$BRANCH"
+
+            # Criar Pull Request com label variada
+            PR_LABEL=${LABELS[$((RANDOM % ${#LABELS[@]}))]}
+            PR_DATA=$(jq -n \
+              --arg title "Simulação Avançada $i por $AUTHOR" \
+              --arg head "$BRANCH" \
+              --arg base "main" \
+              --arg body "Esta PR simula atividade realista para o DevLake." \
+              '{title: $title, head: $head, base: $base, body: $body}')
+
+            RESPONSE=$(curl -s -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/pulls \
+              -d "$PR_DATA")
+
+            PR_NUMBER=$(echo "$RESPONSE" | jq -r .number)
+
+            if [ "$PR_NUMBER" = "null" ] || [ -z "$PR_NUMBER" ]; then
+              echo "❌ PR falhou na criação. Pulando simulação."
+              continue
+            fi
+
+            # Adicionar label à PR
+            curl -s -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/labels \
+              -d "{\"labels\": [\"$PR_LABEL\"]}"
+
+            # Varia tempo de "review"
+            SLEEP_TIME=$((RANDOM % 30 + 10))
+            echo "⏳ Aguardando $SLEEP_TIME segundos para simular tempo de review..."
+            sleep $SLEEP_TIME
+
+            # Merge PR
+            curl -s -X PUT -H "Authorization: token ${{ secrets.GH_PAT }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+              -d '{"merge_method": "merge"}'
+
+            echo "✅ PR #$PR_NUMBER mergeado"
+
+            # 60% de chance de gerar bug
+            if [ $((RANDOM % 10)) -lt 6 ]; then
+              echo "🐞 Simulando bug para essa execução"
+
+              ISSUE_DATA=$(jq -n \
+                --arg title "Bug simulado após PR $PR_NUMBER" \
+                --arg body "Este bug simula falha de produção para Change Failure Rate e MTTR." \
+                '{title: $title, body: $body, labels: ["bug"]}')
+
+              ISSUE_RESPONSE=$(curl -s -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/issues \
+                -d "$ISSUE_DATA")
+
+              ISSUE_NUMBER=$(echo "$ISSUE_RESPONSE" | jq -r .number)
+
+              # Tempo de resolução variável
+              MTTR_DELAY=$((RANDOM % 60 + 10))
+              sleep $MTTR_DELAY
+
+              curl -s -X PATCH -H "Authorization: token ${{ secrets.GH_PAT }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER \
+                -d '{"state": "closed"}'
+
+              echo "✅ Issue #$ISSUE_NUMBER fechada após $MTTR_DELAY segundos"
+            else
+              echo "👍 Sem bug nesta simulação"
+            fi
+
+            echo "-------------------------------------------"
+          done
