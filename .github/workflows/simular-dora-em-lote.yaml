@@ -1,0 +1,99 @@
+name: Simular Lote de Métricas DORA
+
+on:
+  workflow_dispatch:
+    inputs:
+      quantidade:
+        description: "Quantas simulações deseja executar?"
+        required: true
+        default: "3"
+
+jobs:
+  simular-dora:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Executar múltiplas simulações
+        run: |
+          for i in $(seq 1 ${{ github.event.inputs.quantidade }}); do
+            echo "🔁 Execução $i"
+
+            # Criar branch e commit
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            BRANCH="feature/simulacao-dora-${i}-$(date +%s)"
+            git checkout -b "$BRANCH"
+            echo "print('Simulação DORA $i')" > dora_${i}.py
+            git add .
+            git commit -m "feat(simulacao): DORA $i"
+            git push origin "$BRANCH"
+
+            # Criar PR
+            PR_DATA=$(jq -n \
+              --arg title "Simulação DORA $i" \
+              --arg head "$BRANCH" \
+              --arg base "main" \
+              --arg body "Simulação $i para DORA Metrics" \
+              '{title: $title, head: $head, base: $base, body: $body}')
+
+            RESPONSE=$(curl -s -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/pulls \
+              -d "$PR_DATA")
+
+            PR_NUMBER=$(echo "$RESPONSE" | jq -r .number)
+            echo "🛠️ PR $PR_NUMBER criado"
+
+            # Simula revisão rápida
+            sleep 5
+
+            # Merge do PR
+            curl -s -X PUT -H "Authorization: token ${{ secrets.GH_PAT }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+              -d '{"merge_method": "merge"}'
+            echo "✅ PR $PR_NUMBER merged"
+
+            # 50% das vezes simula um bug pós-deploy
+            if [ $((RANDOM % 2)) -eq 0 ]; then
+              echo "🐞 Simulando bug após deploy $i"
+
+              ISSUE_DATA=$(jq -n \
+                --arg title "Bug após simulação DORA $i" \
+                --arg body "Este bug simula uma falha para Change Failure Rate e MTTR." \
+                '{title: $title, body: $body, labels: ["bug"]}')
+
+              ISSUE_RESPONSE=$(curl -s -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/issues \
+                -d "$ISSUE_DATA")
+
+              ISSUE_NUMBER=$(echo "$ISSUE_RESPONSE" | jq -r .number)
+
+              # Espera simulada: MTTR curto (10s) ou longo (60s)
+              if [ $((RANDOM % 2)) -eq 0 ]; then
+                sleep 10
+              else
+                sleep 60
+              fi
+
+              # Fecha issue
+              curl -s -X PATCH -H "Authorization: token ${{ secrets.GH_PAT }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER \
+                -d '{"state": "closed"}'
+
+              echo "✅ Issue $ISSUE_NUMBER fechada (bug resolvido)"
+            else
+              echo "👍 Sem bugs nesta simulação"
+            fi
+
+            echo "-------------------------------------------"
+          done
