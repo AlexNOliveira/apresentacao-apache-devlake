@@ -41,9 +41,21 @@ jobs:
                -H "Accept: application/vnd.github.v3+json" \
                https://api.github.com/repos/${{ github.repository }}/pulls \
                -d "$PR_DATA")
+          
+          echo "Resposta da criação do PR:"
+          echo "$RESPONSE"
+          
+          PR_NUMBER=$(echo "$RESPONSE" | jq -r .number)
+          
+          if [ "$PR_NUMBER" = "null" ] || [ -z "$PR_NUMBER" ]; then
+            echo "❌ Erro: Pull Request não foi criado corretamente."
+            exit 1
+          fi
+          
+          echo "✅ PR $PR_NUMBER criado com sucesso"
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
 
           PR_URL=$(echo "$RESPONSE" | jq -r .html_url)
-          PR_NUMBER=$(echo "$RESPONSE" | jq -r .number)
 
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
