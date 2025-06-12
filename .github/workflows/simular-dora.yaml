@@ -36,23 +36,29 @@ jobs:
             --arg base "main" \
             --arg body "Este PR simula uma mudança para métricas DORA." \
             '{title: $title, head: $head, base: $base, body: $body}')
-          curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+
+          RESPONSE=$(curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                -H "Accept: application/vnd.github.v3+json" \
                https://api.github.com/repos/${{ github.repository }}/pulls \
-               -d "$PR_DATA" > resposta.json
+               -d "$PR_DATA")
 
-          PR_URL=$(jq -r .html_url < resposta.json)
+          PR_URL=$(echo "$RESPONSE" | jq -r .html_url)
+          PR_NUMBER=$(echo "$RESPONSE" | jq -r .number)
+
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
-
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Esperar 10 segundos (simula tempo de revisão)
         run: sleep 10
 
-      - name: Fazer Merge do PR
+      - name: Fazer Merge do PR via API
         run: |
-          gh pr merge ${{ env.PR_URL }} --merge --admin
+          curl -s -X PUT -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/${{ github.repository }}/pulls/${{ env.PR_NUMBER }}/merge \
+               -d '{"merge_method": "merge"}'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
