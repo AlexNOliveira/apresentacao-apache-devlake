@@ -24,16 +24,31 @@ jobs:
         run: |
           for i in $(seq 1 ${{ github.event.inputs.quantidade }}); do
             echo "🔁 Execução $i"
-
-            # Criar branch e commit
+          
+            # Configura Git
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+            # Criar branch único
             BRANCH="feature/simulacao-dora-${i}-$(date +%s)"
             git checkout -b "$BRANCH"
-            echo "print('Simulação DORA $i')" > dora_${i}.py
-            git add .
-            git commit -m "feat(simulacao): DORA $i"
-            git push origin "$BRANCH"
+          
+            # Criar/modificar arquivo com conteúdo dinâmico
+            FILE_NAME="dora_${i}.py"
+            echo "print('Simulação DORA $i - $(date)')" > "$FILE_NAME"
+          
+            # Adiciona e verifica alterações
+            git add "$FILE_NAME"
+          
+            if ! git diff --cached --quiet; then
+              git commit -m "feat(simulacao): DORA $i"
+              git push origin "$BRANCH"
+            else
+              echo "⚠️ Nenhuma alteração detectada. Pulando push e PR..."
+              continue
+            fi
+          
+            # Restante do script continua aqui: criação do PR, merge, bug opcional...
 
             # Criar PR
             PR_DATA=$(jq -n \
