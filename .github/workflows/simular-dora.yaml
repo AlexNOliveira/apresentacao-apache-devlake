@@ -27,11 +27,23 @@ jobs:
           git push origin $BRANCH
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
-      - name: Criar Pull Request
-        id: criar_pr
+      - name: Criar Pull Request via API
+        id: criar_pr_via_api
         run: |
-          PR_URL=$(gh pr create --base main --head ${{ env.BRANCH }} --title "Simulação DORA" --body "Este PR simula uma mudança para métricas DORA.")
+          PR_DATA=$(jq -n \
+            --arg title "Simulação DORA" \
+            --arg head "${{ env.BRANCH }}" \
+            --arg base "main" \
+            --arg body "Este PR simula uma mudança para métricas DORA." \
+            '{title: $title, head: $head, base: $base, body: $body}')
+          curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/${{ github.repository }}/pulls \
+               -d "$PR_DATA" > resposta.json
+
+          PR_URL=$(jq -r .html_url < resposta.json)
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
