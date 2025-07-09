@@ -1,0 +1,101 @@
+name: Simular Dados Amplos DevLake (Agendado)
+
+on:
+  schedule:
+    - cron: '0 13 * * 1-5'  # 9h UTC = 6h BRT (ajuste conforme necessário)
+
+jobs:
+  simular-avancado:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Simular múltiplas execuções avançadas
+        env:
+          QUANTIDADE: 3  # ← defina aqui quantas execuções por dia
+        run: |
+          AUTHORS=("Alice Dev" "Bob Ops" "Carol QA" "Dan UX")
+          LABELS=("enhancement" "refactor" "hotfix" "docs")
+
+          for i in $(seq 1 $QUANTIDADE); do
+            echo "🔁 Simulação $i"
+
+            AUTHOR=${AUTHORS[$((RANDOM % ${#AUTHORS[@]}))]}
+            AUTHOR_EMAIL=$(echo "$AUTHOR" | tr '[:upper:]' '[:lower:]' | tr ' ' '.')@example.com
+
+            git config user.name "$AUTHOR"
+            git config user.email "$AUTHOR_EMAIL"
+
+            BRANCH="feature/amplo-dora-${i}-$(date +%s)"
+            git checkout -b "$BRANCH"
+
+            FILE="src/simulacao_${i}.py"
+            mkdir -p src
+            echo "# Arquivo gerado por $AUTHOR" > "$FILE"
+            echo "print('Simulação DORA Avançada $i - $(date)')" >> "$FILE"
+
+            git add "$FILE"
+            git commit -m "feat: simulação $i por $AUTHOR"
+            git push origin "$BRANCH"
+
+            PR_LABEL=${LABELS[$((RANDOM % ${#LABELS[@]}))]}
+            PR_DATA=$(jq -n \
+              --arg title "Simulação Avançada $i por $AUTHOR" \
+              --arg head "$BRANCH" \
+              --arg base "main" \
+              --arg body "Simulação automática para DevLake." \
+              '{title: $title, head: $head, base: $base, body: $body}')
+
+            RESPONSE=$(curl -s -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/pulls \
+              -d "$PR_DATA")
+
+            PR_NUMBER=$(echo "$RESPONSE" | jq -r .number)
+
+            if [ "$PR_NUMBER" = "null" ] || [ -z "$PR_NUMBER" ]; then
+              echo "❌ PR não foi criado. Pulando..."
+              continue
+            fi
+
+            curl -s -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/labels \
+              -d "{\"labels\": [\"$PR_LABEL\"]}"
+
+            sleep $((RANDOM % 30 + 10))
+
+            curl -s -X PUT -H "Authorization: token ${{ secrets.GH_PAT }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+              -d '{"merge_method": "merge"}'
+
+            if [ $((RANDOM % 10)) -lt 6 ]; then
+              ISSUE_DATA=$(jq -n \
+                --arg title "Bug simulado após PR $PR_NUMBER" \
+                --arg body "Bug pós-merge para métricas DORA." \
+                '{title: $title, body: $body, labels: ["bug"]}')
+
+              ISSUE_RESPONSE=$(curl -s -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/issues \
+                -d "$ISSUE_DATA")
+
+              ISSUE_NUMBER=$(echo "$ISSUE_RESPONSE" | jq -r .number)
+              sleep $((RANDOM % 60 + 10))
+
+              curl -s -X PATCH -H "Authorization: token ${{ secrets.GH_PAT }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER \
+                -d '{"state": "closed"}'
+            fi
+
+            echo "✔️ Final da simulação $i"
+            echo "-------------------------------------------"
+          done
