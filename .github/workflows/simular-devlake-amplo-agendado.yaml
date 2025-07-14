@@ -2,7 +2,7 @@ name: Simular Dados Amplos DevLake (Agendado)
 
 on:
   schedule:
-    - cron: '0 11 * * 1-5'  # 9h UTC = 6h BRT (ajuste conforme necessário)
+    - cron: '0 11 * * 1-5'  # UTC timezone
 
 jobs:
   simular-avancado:
