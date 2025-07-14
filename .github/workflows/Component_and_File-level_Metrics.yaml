@@ -1,4 +1,4 @@
-name: Simular Dados para dashboard Component and File-level Metrics
+name: Simular Dados para dashboard Component and File-level Metrics (Agendado)
 
 on:
   schedule:
