@@ -1,0 +1,88 @@
+name: Simular Métricas de Componentes e Arquivos
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'  # Todo dia útil às 9h UTC
+
+jobs:
+  simular-componentes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Simular commits com múltiplos autores e arquivos
+        env:
+          AUTORES: "Alice Dev,Bob Ops,Carol QA,Dan UX"
+          ARQUIVOS: "core.py,auth.py,utils.py,config.py,db.py,api.py,metrics.py,parser.py,storage.py,validator.py"
+        run: |
+          # Separar autores e arquivos
+          IFS=',' read -r -a autores <<< "$AUTORES"
+          IFS=',' read -r -a arquivos <<< "$ARQUIVOS"
+
+          # Criar novo branch para simulação do dia
+          BRANCH="simulacao-componentes-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "$BRANCH"
+
+          # Loop de commits simulando múltiplos autores em múltiplos arquivos
+          for i in $(seq 1 5); do
+            AUTOR="${autores[$((RANDOM % ${#autores[@]}))]}"
+            EMAIL=$(echo "$AUTOR" | tr '[:upper:]' '[:lower:]' | tr ' ' .)@example.com
+
+            git config user.name "$AUTOR"
+            git config user.email "$EMAIL"
+
+            # Modificar entre 2 e 4 arquivos aleatórios
+            for j in $(seq 1 $((RANDOM % 3 + 2))); do
+              FILE="${arquivos[$((RANDOM % ${#arquivos[@]}))]}"
+              mkdir -p src
+              PATH_ARQ="src/$FILE"
+
+              # Simular modificação de linhas
+              echo "# Modificado por $AUTOR em $(date)" >> "$PATH_ARQ"
+              echo "print('Alteração $i por $AUTOR')" >> "$PATH_ARQ"
+            done
+
+            git add src/
+            git commit -m "chore: simulação $i por $AUTOR"
+          done
+
+          # Push do branch
+          git push origin "$BRANCH"
+
+          # Abrir PR automaticamente
+          PR_DATA=$(jq -n \
+            --arg title "Simulação Componentes e Arquivos $(date +%F)" \
+            --arg head "$BRANCH" \
+            --arg base "main" \
+            --arg body "Este PR simula commits técnicos com múltiplos arquivos e autores." \
+            '{title: $title, head: $head, base: $base, body: $body}')
+
+          RESPONSE=$(curl -s -X POST -H "Authorization: token ${{ secrets.GH_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls \
+            -d "$PR_DATA")
+
+          PR_NUMBER=$(echo "$RESPONSE" | jq -r .number)
+
+          if [ "$PR_NUMBER" = "null" ] || [ -z "$PR_NUMBER" ]; then
+            echo "❌ PR não foi criado. Encerrando."
+            exit 1
+          fi
+
+          echo "✅ PR #$PR_NUMBER criado"
+
+          # Pequeno delay para simular tempo de revisão
+          sleep 20
+
+          # Merge do PR
+          curl -s -X PUT -H "Authorization: token ${{ secrets.GH_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+            -d '{"merge_method": "merge"}'
+
+          echo "✅ PR #$PR_NUMBER mergeado"
