@@ -2,7 +2,7 @@ name: Simular Dados para dashboard Component and File-level Metrics
 
 on:
   schedule:
-    - cron: '0 9 * * 1-5'  # Todo dia útil às 9h UTC
+    - cron: '0 17 * * 1-5'  # Todo dia útil às 9h UTC
 
 jobs:
   simular-componentes:
