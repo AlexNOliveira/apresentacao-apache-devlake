@@ -1,4 +1,4 @@
-name: Simular Métricas de Componentes e Arquivos
+name: Simular Dados para dashboard Component and File-level Metrics
 
 on:
   schedule:
