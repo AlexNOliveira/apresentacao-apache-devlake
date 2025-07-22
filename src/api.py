@@ -18,3 +18,7 @@ print('Alteração 5 por Carol QA')
 print('Alteração 3 por Alice Dev')
 # Modificado por Alice Dev em Fri Jul 18 12:34:22 UTC 2025
 print('Alteração 3 por Alice Dev')
+# Modificado por Carol QA em Tue Jul 22 12:35:10 UTC 2025
+print('Alteração 1 por Carol QA')
+# Modificado por Bob Ops em Tue Jul 22 12:35:10 UTC 2025
+print('Alteração 2 por Bob Ops')
