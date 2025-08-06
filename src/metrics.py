@@ -52,3 +52,5 @@ print('Alteração 3 por Alice Dev')
 print('Alteração 4 por Dan UX')
 # Modificado por Bob Ops em Wed Aug  6 12:36:42 UTC 2025
 print('Alteração 3 por Bob Ops')
+# Modificado por Carol QA em Wed Aug  6 12:36:42 UTC 2025
+print('Alteração 5 por Carol QA')
