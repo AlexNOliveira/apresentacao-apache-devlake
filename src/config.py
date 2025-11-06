@@ -240,3 +240,5 @@ print('Alteração 2 por Bob Ops')
 print('Alteração 3 por Alice Dev')
 # Modificado por Alice Dev em Thu Nov  6 12:33:05 UTC 2025
 print('Alteração 3 por Alice Dev')
+# Modificado por Carol QA em Thu Nov  6 12:33:05 UTC 2025
+print('Alteração 4 por Carol QA')
